@@ -1,0 +1,109 @@
+from google.colab import files
+uploaded = files.upload()
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# -------- Load the dataset --------
+file_name = "BMW sales data (2010-2024).csv"
+df = pd.read_csv(file_name)
+
+print("Dataset Shape:", df.shape)
+print(df.head())
+
+# -------- Keep only numeric data and remove missing values --------
+df = df.select_dtypes(include=[np.number]).dropna()
+
+# Last column is taken as target (sales)
+X = df.iloc[:, :-1].values
+y = df.iloc[:, -1].values.reshape(-1, 1)
+
+# -------- Standardize the data (helps training) --------
+X = (X - X.mean(axis=0)) / X.std(axis=0)
+y = (y - y.mean(axis=0)) / y.std(axis=0)
+
+# -------- Split into training and testing --------
+split = int(0.8 * len(X))
+X_train, X_test = X[:split], X[split:]
+y_train, y_test = y[:split], y[split:]
+
+# -------- Sigmoid activation --------
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+# Derivative used in backpropagation
+def sigmoid_derivative(a):
+    return a * (1 - a)
+
+# -------- Initialize weights randomly --------
+np.random.seed(42)
+
+input_size = X_train.shape[1]
+hidden_size = 6
+output_size = 1
+
+W1 = np.random.randn(input_size, hidden_size)
+b1 = np.zeros((1, hidden_size))
+
+W2 = np.random.randn(hidden_size, output_size)
+b2 = np.zeros((1, output_size))
+
+lr = 0.01
+epochs = 100
+loss_history = []
+
+# -------- Training starts here --------
+for epoch in range(epochs):
+
+    # Forward pass
+    z1 = np.dot(X_train, W1) + b1
+    a1 = sigmoid(z1)
+
+    z2 = np.dot(a1, W2) + b2
+    y_pred = z2
+
+    # Mean squared error
+    loss = np.mean((y_train - y_pred) ** 2)
+    loss_history.append(loss)
+
+    # Backpropagation
+    dL = 2 * (y_pred - y_train) / len(y_train)
+
+    dW2 = np.dot(a1.T, dL)
+    db2 = np.sum(dL, axis=0, keepdims=True)
+
+    da1 = np.dot(dL, W2.T)
+    dz1 = da1 * sigmoid_derivative(a1)
+
+    dW1 = np.dot(X_train.T, dz1)
+    db1 = np.sum(dz1, axis=0, keepdims=True)
+
+    # Update weights
+    W2 -= lr * dW2
+    b2 -= lr * db2
+    W1 -= lr * dW1
+    b1 -= lr * db1
+
+    # Print progress occasionally
+    if (epoch + 1) % 10 == 0 or epoch == 0:
+        print(f"\nEpoch {epoch+1}")
+        print("Loss:", loss)
+        print("W1 sample:", W1[:2])
+        print("W2:", W2)
+
+# -------- Plot loss graph --------
+plt.figure()
+plt.plot(loss_history)
+plt.title("Training Loss Curve")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.show()
+
+# -------- Testing phase --------
+z1_test = np.dot(X_test, W1) + b1
+a1_test = sigmoid(z1_test)
+y_test_pred = np.dot(a1_test, W2) + b2
+
+test_loss = np.mean((y_test - y_test_pred) ** 2)
+print("\nFinal Test Loss:", test_loss)
